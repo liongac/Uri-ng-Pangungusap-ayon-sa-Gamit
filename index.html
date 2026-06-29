@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="tl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uri ng Pangungusap - Archery Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Fredoka', sans-serif;
+            background-color: #f0fdfa; /* Pastel mint background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        /* 16:9 Aspect Ratio Container */
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 1024px;
+            aspect-ratio: 16 / 9;
+            background: linear-gradient(180deg, #bae6fd 0%, #e0f2fe 60%, #bbf7d0 60%, #86efac 100%);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            border-radius: 1rem;
+            overflow: hidden;
+            border: 8px solid #ffffff;
+        }
+
+        /* Animations */
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+            75% { transform: translateX(-5px); }
+        }
+
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        .floating {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        .shake {
+            animation: shake 0.4s ease-in-out;
+        }
+
+        .pop {
+            animation: pop 0.4s ease-in-out;
+        }
+
+        /* Arrow Animation */
+        .arrow-projectile {
+            position: absolute;
+            bottom: 10%;
+            left: 50%;
+            width: 10px;
+            height: 60px;
+            background-color: #78350f;
+            border-radius: 5px;
+            transform-origin: bottom center;
+            transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+            z-index: 20;
+            opacity: 0;
+            pointer-events: none;
+        }
+        .arrow-projectile::after {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: -5px;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-bottom: 15px solid #94a3b8;
+        }
+        .arrow-projectile::before {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: -5px;
+            width: 20px;
+            height: 15px;
+            background-color: #ef4444;
+            clip-path: polygon(0 0, 100% 0, 50% 100%);
+        }
+
+        /* Target Styles */
+        .archery-target {
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .archery-target:hover {
+            transform: scale(1.05);
+        }
+
+        /* Hidden Class */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Custom Input */
+        .custom-input {
+            border: 4px solid #93c5fd;
+            border-radius: 9999px;
+            padding: 0.5rem 1.5rem;
+            font-size: 1.25rem;
+            outline: none;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        .custom-input:focus {
+            border-color: #60a5fa;
+            box-shadow: 0 0 15px rgba(96, 165, 250, 0.5);
+        }
+
+        /* Avatar Styles */
+        .avatar-btn {
+            transition: all 0.3s;
+            opacity: 0.85;
+            cursor: pointer;
+        }
+        .avatar-btn.selected, .avatar-btn:hover {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+        .avatar-btn.selected {
+            border-color: #38bdf8;
+            background-color: #e0f2fe;
+            box-shadow: 0 10px 15px -3px rgba(56, 189, 248, 0.3);
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <!-- UI Controls (Music) -->
+    <div class="absolute top-4 right-4 z-50">
+        <button id="music-btn" class="bg-white p-2 rounded-full shadow-md text-2xl hover:bg-gray-100" onclick="toggleMusic()">
+            🔊
+        </button>
+    </div>
+
+    <!-- Screen 1: Intro -->
+    <div id="intro-screen" class="absolute inset-0 flex flex-col items-center justify-center bg-white/40 backdrop-blur-sm z-40">
+        <h1 class="text-5xl md:text-6xl font-bold text-sky-600 text-center mb-4 drop-shadow-md">
+            🎯 Puno ng Kaalaman:<br>Uri ng Pangungusap
+        </h1>
+        <p class="text-xl text-gray-700 mb-8 font-semibold text-center px-4">
+            Isang masayang archery game para sa Grade 5 Filipino!
+        </p>
+        
+        <div class="bg-white p-8 rounded-3xl shadow-xl flex flex-col items-center border-4 border-sky-200">
+            <label for="player-name" class="text-xl font-bold text-gray-700 mb-3">Ano ang pangalan mo?</label>
+            <input type="text" id="player-name" class="custom-input mb-6" placeholder="Ilagay ang pangalan..." autocomplete="off">
+            
+            <label class="text-xl font-bold text-gray-700 mb-3">Pumili ng iyong Avatar:</label>
+            <div id="avatar-container" class="flex flex-wrap justify-center gap-4 mb-8">
+                <button class="avatar-btn flex flex-col items-center bg-gray-50 border-4 border-transparent p-3 rounded-2xl" onclick="selectAvatar('👩🏻', 'Donna', this)">
+                    <span class="text-5xl mb-2">👩🏻</span>
+                    <span class="font-bold text-gray-600">Donna</span>
+                </button>
+                <button class="avatar-btn flex flex-col items-center bg-gray-50 border-4 border-transparent p-3 rounded-2xl" onclick="selectAvatar('👦🏽', 'Kem', this)">
+                    <span class="text-5xl mb-2">👦🏽</span>
+                    <span class="font-bold text-gray-600">Kem</span>
+                </button>
+                <button class="avatar-btn flex flex-col items-center bg-gray-50 border-4 border-transparent p-3 rounded-2xl" onclick="selectAvatar('👩🏽‍🦱', 'Bhex', this)">
+                    <span class="text-5xl mb-2">👩🏽‍🦱</span>
+                    <span class="font-bold text-gray-600">Bhex</span>
+                </button>
+                <button class="avatar-btn flex flex-col items-center bg-gray-50 border-4 border-transparent p-3 rounded-2xl" onclick="selectAvatar('👩🏼', 'Welma', this)">
+                    <span class="text-5xl mb-2">👩🏼</span>
+                    <span class="font-bold text-gray-600">Welma</span>
+                </button>
+                <button class="avatar-btn flex flex-col items-center bg-gray-50 border-4 border-transparent p-3 rounded-2xl" onclick="selectAvatar('👧🏻', 'Tracy', this)">
+                    <span class="text-5xl mb-2">👧🏻</span>
+                    <span class="font-bold text-gray-600">Tracy</span>
+                </button>
+            </div>
+
+            <button onclick="startGame()" class="bg-sky-500 hover:bg-sky-600 text-white font-bold text-2xl py-3 px-10 rounded-full shadow-lg transform transition hover:scale-105 active:scale-95">
+                Magsimula!
+            </button>
+        </div>
+    </div>
+
+    <!-- Screen 2: Level Announcer -->
+    <div id="level-screen" class="absolute inset-0 flex flex-col items-center justify-center bg-sky-500/90 z-40 hidden">
+        <h2 id="level-title" class="text-6xl font-bold text-white mb-4 drop-shadow-lg pop">Antas 1: Madali</h2>
+        <p id="level-desc" class="text-2xl text-white font-semibold mb-8 text-center px-4">Piliin ang tamang uri ng pangungusap.</p>
+        <button onclick="startLevel()" class="bg-white text-sky-600 hover:bg-gray-100 font-bold text-2xl py-3 px-10 rounded-full shadow-lg transform transition hover:scale-105 active:scale-95">
+            Handa na ako!
+        </button>
+    </div>
+
+    <!-- Screen 3: Game Board -->
+    <div id="game-screen" class="absolute inset-0 z-10 hidden flex flex-col">
+        <!-- Header: Score and Progress -->
+        <div class="flex justify-between items-center p-4">
+            <div class="bg-white/80 backdrop-blur px-6 py-2 rounded-full shadow font-bold text-sky-700 text-xl border-2 border-white flex items-center gap-2">
+                Manlalaro: <span id="display-avatar" class="text-2xl"></span><span id="display-name" class="text-sky-900"></span>
+            </div>
+            <div class="bg-white/80 backdrop-blur px-6 py-2 rounded-full shadow font-bold text-orange-500 text-xl border-2 border-white">
+                Iskor: <span id="display-score" class="text-orange-600 text-2xl">0</span>
+            </div>
+        </div>
+
+        <!-- Question Area -->
+        <div class="flex-grow flex flex-col items-center pt-2">
+            <div class="bg-white px-8 py-4 rounded-2xl shadow-lg border-4 border-yellow-300 max-w-3xl text-center mb-8 relative z-20">
+                <p class="text-sky-600 font-bold mb-1" id="question-number">Tanong 1/15</p>
+                <h2 id="question-text" class="text-3xl font-bold text-gray-800">Ang ibon ay lumilipad sa langit.</h2>
+            </div>
+
+            <!-- Targets Area -->
+            <div id="targets-container" class="flex flex-wrap justify-center gap-8 md:gap-12 w-full px-8 relative z-20">
+                <!-- Targets will be injected here via JS -->
+            </div>
+            
+            <!-- Identification Input Area (For Level 3) -->
+            <div id="identification-container" class="hidden flex-col items-center justify-center w-full relative z-20 gap-6 mt-4">
+                <input type="text" id="id-input" class="custom-input w-64 shadow-md" placeholder="Uri ng pangungusap...">
+                <div class="archery-target floating relative flex flex-col items-center" onclick="submitIdentification()">
+                    <!-- Target SVG -->
+                    <svg width="100" height="100" viewBox="0 0 100 100" class="drop-shadow-lg">
+                        <circle cx="50" cy="50" r="48" fill="#ffffff" stroke="#e5e7eb" stroke-width="2"/>
+                        <circle cx="50" cy="50" r="38" fill="#fecaca"/>
+                        <circle cx="50" cy="50" r="28" fill="#bae6fd"/>
+                        <circle cx="50" cy="50" r="18" fill="#fef08a"/>
+                        <circle cx="50" cy="50" r="8" fill="#ef4444"/>
+                    </svg>
+                    <span class="bg-white border-2 border-sky-400 px-4 py-1 rounded-full font-bold text-sky-700 mt-2 shadow-sm">
+                        Itira!
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Player Bow (Bottom Center) -->
+        <div class="absolute bottom-0 left-1/2 transform -translate-x-1/2 z-10 w-48 h-48 flex justify-center items-end pb-4">
+            <svg id="player-bow" width="120" height="120" viewBox="0 0 100 100" class="drop-shadow-2xl">
+                <!-- Bow -->
+                <path d="M 20,90 Q 50,10 80,90" fill="none" stroke="#b45309" stroke-width="6" stroke-linecap="round"/>
+                <!-- String -->
+                <line x1="20" y1="90" x2="80" y2="90" stroke="#9ca3af" stroke-width="2"/>
+                <!-- Arrow (Idle) -->
+                <g id="idle-arrow">
+                    <line x1="50" y1="90" x2="50" y2="30" stroke="#78350f" stroke-width="4"/>
+                    <polygon points="45,35 55,35 50,20" fill="#94a3b8"/>
+                    <polygon points="45,95 55,95 50,85" fill="#ef4444"/>
+                </g>
+            </svg>
+        </div>
+        
+        <!-- Animated Arrow -->
+        <div id="flying-arrow" class="arrow-projectile"></div>
+    </div>
+
+    <!-- Screen 4: Feedback Modal -->
+    <div id="feedback-modal" class="absolute inset-0 flex items-center justify-center bg-black/40 z-50 hidden backdrop-blur-sm">
+        <div id="feedback-box" class="bg-white p-8 rounded-3xl shadow-2xl border-4 text-center max-w-md transform scale-90 transition-transform duration-300">
+            <div id="feedback-icon" class="text-7xl mb-4">✨</div>
+            <h2 id="feedback-title" class="text-4xl font-bold mb-2 text-green-500">TAMA!</h2>
+            <p id="feedback-message" class="text-xl text-gray-700 mb-6 font-semibold">Galing mo!</p>
+            <button onclick="nextQuestion()" class="bg-green-500 hover:bg-green-600 text-white font-bold text-xl py-3 px-8 rounded-full shadow-md">
+                Susunod na Tanong
+            </button>
+        </div>
+    </div>
+
+    <!-- Screen 5: Certificate -->
+    <div id="certificate-screen" class="absolute inset-0 bg-sky-50 z-50 hidden flex items-center justify-center p-6">
+        <div class="relative w-full max-w-4xl aspect-[4/3] bg-white rounded-xl shadow-2xl border-[16px] border-double border-sky-300 flex flex-col items-center justify-center p-8 text-center overflow-hidden">
+            <!-- Decorative corners -->
+            <div class="absolute top-4 left-4 text-4xl text-sky-200">🎯</div>
+            <div class="absolute top-4 right-4 text-4xl text-sky-200">🎯</div>
+            <div class="absolute bottom-4 left-4 text-4xl text-sky-200">🎯</div>
+            <div class="absolute bottom-4 right-4 text-4xl text-sky-200">🎯</div>
+
+            <div class="text-green-700 font-bold text-xl md:text-2xl mb-1 uppercase tracking-wider text-center">Mababang Paaralan ng De La Salle Santiago Zobel</div>
+            <div class="text-green-600 font-semibold text-lg md:text-xl mb-6 text-center">Filipino 5 Yunit</div>
+
+            <h1 class="text-4xl md:text-5xl font-bold text-gray-800 mb-2 uppercase tracking-wide">Katibayan ng Pagkilala</h1>
+            <p class="text-lg md:text-xl text-gray-500 mb-6 font-semibold">Iginagawad kay</p>
+            
+            <div id="cert-avatar" class="text-6xl md:text-7xl mb-2 drop-shadow-md"></div>
+            <h2 id="cert-name" class="text-5xl md:text-7xl font-bold text-sky-600 mb-8 border-b-4 border-sky-200 px-12 pb-4 italic">Pangalan</h2>
+            
+            <p class="text-lg md:text-xl text-gray-600 mb-4 font-semibold max-w-2xl">
+                Para sa matagumpay na pagtapos sa larong "Uri ng Pangungusap Ayon sa Gamit" na may natatanging iskor na:
+            </p>
+            
+            <div class="bg-orange-100 border-4 border-orange-300 text-orange-600 text-5xl font-bold py-4 px-12 rounded-full mb-8 shadow-inner">
+                <span id="cert-score">0</span> / 150
+            </div>
+            
+            <button onclick="location.reload()" class="bg-sky-500 hover:bg-sky-600 text-white font-bold text-xl py-3 px-8 rounded-full shadow-lg relative z-10 transition transform hover:scale-105">
+                Maglaro Uli
+            </button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // --- Data and Questions ---
+    const allQuestions = [
+        // Level 1: Madali (Part 1 - Multiple Choice - Basic punctuation clues)
+        { level: 1, type: 'mc', q: 'Aray! Nakagat ako ng langgam.', ans: 'Padamdam', exp: 'Nagsasaad ito ng matinding damdamin at nagtatapos sa tandang padamdam (!).' },
+        { level: 1, type: 'mc', q: 'Saan ka pupunta bukas?', ans: 'Patanong', exp: 'Nagtatanong ito at nagtatapos sa tandang pananong (?).' },
+        { level: 1, type: 'mc', q: 'Ang Pilipinas ay isang arkipelago.', ans: 'Pasalaysay', exp: 'Naglalahad ito ng katotohanan at nagtatapos sa tuldok (.).' },
+        { level: 1, type: 'mc', q: 'Pakikuha ng isang basong tubig.', ans: 'Pakiusap', exp: 'Nakikiusap ito at karaniwang may salitang "paki".' },
+        { level: 1, type: 'mc', q: 'Linisin mo ang iyong kwarto.', ans: 'Pautos', exp: 'Nag-uutos ito na gawin ang isang bagay.' },
+        
+        // Level 2: Katamtaman (Part 1 - Multiple Choice - Trickier context)
+        { level: 2, type: 'mc', q: 'Maaari ba akong humiram ng lapis?', ans: 'Pakiusap', exp: 'Kahit may tandang pananong, ito ay nakikiusap (Maaari ba).' },
+        { level: 2, type: 'mc', q: 'Naku, nasusunog ang bahay!', ans: 'Padamdam', exp: 'Nagsasaad ng gulat o takot at may padamdam (!).' },
+        { level: 2, type: 'mc', q: 'Maraming magagandang tanawin sa ating bansa.', ans: 'Pasalaysay', exp: 'Simpleng pagbibigay ng impormasyon o kwento.' },
+        { level: 2, type: 'mc', q: 'Sino ang pambansang bayani ng Pilipinas?', ans: 'Patanong', exp: 'Naghahanap ito ng sagot at may tandang pananong (?).' },
+        { level: 2, type: 'mc', q: 'Isara mo ang pinto pag-alis mo.', ans: 'Pautos', exp: 'Ito ay direktang utos sa isang tao.' },
+
+        // Level 3: Mahirap (Part 2 - Identification)
+        { level: 3, type: 'id', q: 'Ano ang uri ng pangungusap na naglalahad ng pangyayari at nagtatapos sa tuldok?', ans: 'Pasalaysay', exp: 'Ang Pasalaysay ay nagkukwento o naglalahad.' },
+        { level: 3, type: 'id', q: 'Tukuyin ang uri: "Wow! Ang ganda ng damit mo!"', ans: 'Padamdam', exp: 'May kasamang matinding damdamin ng paghanga (Wow!).' },
+        { level: 3, type: 'id', q: 'Tukuyin ang uri: "Pakibigay itong sulat kay nanay."', ans: 'Pakiusap', exp: 'Ang salitang "paki" ay ginagamit sa pakiusap.' },
+        { level: 3, type: 'id', q: 'Tukuyin ang uri: "Bakit umiiyak ang bata?"', ans: 'Patanong', exp: 'Nagsisimula sa salitang tanong na "Bakit".' },
+        { level: 3, type: 'id', q: 'Tukuyin ang uri: "Diligan mo ang mga halaman sa labas."', ans: 'Pautos', exp: 'Ito ay isang tuwirang utos.' }
+    ];
+
+    const optionsMC = ['Pasalaysay', 'Patanong', 'Pautos', 'Pakiusap', 'Padamdam'];
+
+    // --- Game State ---
+    let playerName = "";
+    let playerAvatar = "";
+    let score = 0;
+    let currentQuestionIndex = 0;
+    let currentLevel = 1;
+    let isAnimating = false;
+
+    // --- Audio System (Web Audio API Synthesizer) ---
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+    let isMusicPlaying = false;
+    let nextNoteTime = 0;
+    let noteIndex = 0;
+    let bgmInterval = null;
+
+    // A cheerful pentatonic melody (frequencies in Hz)
+    // C4, D4, E4, G4, A4
+    const melody = [
+        392.00, 329.63, 261.63, 329.63, // G E C E
+        392.00, 329.63, 440.00, 392.00, // G E A G
+        329.63, 293.66, 261.63, 293.66, // E D C D
+        329.63, 392.00, 261.63, 0       // E G C (rest)
+    ];
+
+    function initAudio() {
+        if (!audioCtx) {
+            audioCtx = new AudioContext();
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+    }
+
+    function playNote(freq, type = 'sine', duration = 0.2, vol = 0.1) {
+        if (!audioCtx || !isMusicPlaying) return;
+        if (freq === 0) return; // Rest note
+
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+
+        osc.type = type;
+        osc.frequency.value = freq;
+
+        // Envelope to make it sound plucky/cheerful
+        gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+        gainNode.gain.linearRampToValueAtTime(vol, audioCtx.currentTime + 0.05);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        osc.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + duration);
+    }
+
+    function loopBGM() {
+        if (!isMusicPlaying) return;
+        playNote(melody[noteIndex], 'triangle', 0.4, 0.05);
+        noteIndex = (noteIndex + 1) % melody.length;
+    }
+
+    function toggleMusic() {
+        initAudio();
+        const btn = document.getElementById('music-btn');
+        isMusicPlaying = !isMusicPlaying;
+        
+        if (isMusicPlaying) {
+            btn.innerHTML = '🔊';
+            bgmInterval = setInterval(loopBGM, 300); // tempo
+        } else {
+            btn.innerHTML = '🔇';
+            clearInterval(bgmInterval);
+        }
+    }
+
+    // Play Sound Effects
+    function playSFX(type) {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        const now = audioCtx.currentTime;
+        if (type === 'shoot') {
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(800, now);
+            osc.frequency.exponentialRampToValueAtTime(100, now + 0.3);
+            gainNode.gain.setValueAtTime(0.2, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+            osc.start(now);
+            osc.stop(now + 0.3);
+        } else if (type === 'correct') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(440, now); // A4
+            osc.frequency.setValueAtTime(554.37, now + 0.1); // C#5
+            osc.frequency.setValueAtTime(659.25, now + 0.2); // E5
+            gainNode.gain.setValueAtTime(0.2, now);
+            gainNode.gain.linearRampToValueAtTime(0, now + 0.5);
+            osc.start(now);
+            osc.stop(now + 0.5);
+        } else if (type === 'wrong') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(300, now);
+            osc.frequency.linearRampToValueAtTime(200, now + 0.3);
+            gainNode.gain.setValueAtTime(0.2, now);
+            gainNode.gain.linearRampToValueAtTime(0, now + 0.3);
+            osc.start(now);
+            osc.stop(now + 0.3);
+        }
+    }
+
+    // --- Game Logic ---
+
+    function selectAvatar(emoji, name, element) {
+        playerAvatar = emoji;
+        // Alisin ang 'selected' class sa lahat
+        const btns = document.querySelectorAll('.avatar-btn');
+        btns.forEach(btn => btn.classList.remove('selected'));
+        // Ilagay sa napindot na avatar
+        element.classList.add('selected');
+        
+        // Mag-play ng simpleng sound effect
+        if (audioCtx && audioCtx.state !== 'suspended') {
+            playSFX('shoot'); 
+        }
+    }
+
+    function startGame() {
+        const nameInput = document.getElementById('player-name').value.trim();
+        if (!nameInput) {
+            // UI fallback instead of alert
+            const inputField = document.getElementById('player-name');
+            inputField.classList.add('border-red-500', 'shake');
+            setTimeout(() => inputField.classList.remove('shake'), 400);
+            return;
+        }
+
+        if (!playerAvatar) {
+            // Paalalahanan ang player na pumili ng avatar kung wala pa
+            const avatarContainer = document.getElementById('avatar-container');
+            avatarContainer.classList.add('shake');
+            setTimeout(() => avatarContainer.classList.remove('shake'), 400);
+            return;
+        }
+
+        initAudio();
+        if (!isMusicPlaying) {
+            toggleMusic(); // Start music automatically if not playing
+        }
+
+        playerName = nameInput;
+        document.getElementById('display-name').textContent = playerName;
+        document.getElementById('display-avatar').textContent = playerAvatar;
+        document.getElementById('intro-screen').classList.add('hidden');
+        
+        currentLevel = 1;
+        currentQuestionIndex = 0;
+        score = 0;
+        updateScore();
+        
+        showLevelAnnouncer();
+    }
+
+    function showLevelAnnouncer() {
+        document.getElementById('game-screen').classList.add('hidden');
+        const levelScreen = document.getElementById('level-screen');
+        const levelTitle = document.getElementById('level-title');
+        const levelDesc = document.getElementById('level-desc');
+
+        if (currentLevel === 1) {
+            levelTitle.textContent = "Antas 1: Madali";
+            levelDesc.textContent = "Piliin ang target na may tamang uri ng pangungusap. (Multiple Choice)";
+        } else if (currentLevel === 2) {
+            levelTitle.textContent = "Antas 2: Katamtaman";
+            levelDesc.textContent = "Mag-ingat sa mga nakakalitong pangungusap! (Multiple Choice)";
+        } else if (currentLevel === 3) {
+            levelTitle.textContent = "Antas 3: Mahirap";
+            levelDesc.textContent = "I-type ang tamang uri ng pangungusap. (Identification)";
+        }
+
+        levelScreen.classList.remove('hidden');
+        // Restart animation
+        levelTitle.classList.remove('pop');
+        void levelTitle.offsetWidth; 
+        levelTitle.classList.add('pop');
+    }
+
+    function startLevel() {
+        document.getElementById('level-screen').classList.add('hidden');
+        document.getElementById('game-screen').classList.remove('hidden');
+        loadQuestion();
+    }
+
+    function loadQuestion() {
+        if (currentQuestionIndex >= allQuestions.length) {
+            showCertificate();
+            return;
+        }
+
+        const q = allQuestions[currentQuestionIndex];
+        
+        // Check if level changed
+        if (q.level > currentLevel) {
+            currentLevel = q.level;
+            showLevelAnnouncer();
+            return;
+        }
+
+        isAnimating = false;
+        document.getElementById('question-number').textContent = `Tanong ${currentQuestionIndex + 1} / ${allQuestions.length}`;
+        document.getElementById('question-text').textContent = q.q;
+        document.getElementById('idle-arrow').style.opacity = '1';
+
+        const targetsContainer = document.getElementById('targets-container');
+        const idContainer = document.getElementById('identification-container');
+
+        if (q.type === 'mc') {
+            targetsContainer.classList.remove('hidden');
+            idContainer.classList.add('hidden');
+            targetsContainer.innerHTML = '';
+            
+            optionsMC.forEach((opt, index) => {
+                const targetHtml = `
+                    <div class="archery-target floating relative flex flex-col items-center" style="animation-delay: ${index * 0.2}s" onclick="shootArrow(this, '${opt}')">
+                        <svg width="100" height="100" viewBox="0 0 100 100" class="drop-shadow-lg target-svg">
+                            <circle cx="50" cy="50" r="48" fill="#ffffff" stroke="#e5e7eb" stroke-width="2"/>
+                            <circle cx="50" cy="50" r="38" fill="#fecaca"/>
+                            <circle cx="50" cy="50" r="28" fill="#bae6fd"/>
+                            <circle cx="50" cy="50" r="18" fill="#fef08a"/>
+                            <circle cx="50" cy="50" r="8" fill="#ef4444"/>
+                        </svg>
+                        <span class="bg-white border-2 border-sky-400 px-4 py-1 rounded-full font-bold text-sky-700 mt-2 shadow-sm text-sm">
+                            ${opt}
+                        </span>
+                    </div>
+                `;
+                targetsContainer.insertAdjacentHTML('beforeend', targetHtml);
+            });
+        } else if (q.type === 'id') {
+            targetsContainer.classList.add('hidden');
+            idContainer.classList.remove('hidden');
+            idContainer.classList.add('flex');
+            document.getElementById('id-input').value = '';
+            document.getElementById('id-input').focus();
+        }
+    }
+
+    function submitIdentification() {
+        if (isAnimating) return;
+        const inputVal = document.getElementById('id-input').value.trim();
+        if (!inputVal) return;
+        
+        // Find the target element inside the identification container
+        const targetEl = document.querySelector('#identification-container .archery-target');
+        shootArrow(targetEl, inputVal);
+    }
+
+    function shootArrow(targetElement, selectedAnswer) {
+        if (isAnimating) return;
+        isAnimating = true;
+
+        playSFX('shoot');
+        document.getElementById('idle-arrow').style.opacity = '0';
+
+        const container = document.getElementById('game-container');
+        const arrow = document.getElementById('flying-arrow');
+        const bowRect = document.getElementById('player-bow').getBoundingClientRect();
+        const targetRect = targetElement.querySelector('svg').getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+
+        // Calculate start and end positions relative to container
+        const startX = (bowRect.left + bowRect.width / 2) - containerRect.left;
+        const startY = (bowRect.top + bowRect.height / 2) - containerRect.top;
+        
+        const endX = (targetRect.left + targetRect.width / 2) - containerRect.left;
+        const endY = (targetRect.top + targetRect.height / 2) - containerRect.top;
+
+        // Calculate angle
+        const deltaX = endX - startX;
+        const deltaY = endY - startY; // negative since Y goes down
+        const angleRad = Math.atan2(deltaY, deltaX);
+        const angleDeg = (angleRad * 180 / Math.PI) + 90; // +90 because arrow points UP by default
+
+        // Reset arrow pos
+        arrow.style.transition = 'none';
+        arrow.style.opacity = '1';
+        arrow.style.left = `${startX}px`;
+        arrow.style.top = `${startY}px`;
+        arrow.style.bottom = 'auto';
+        arrow.style.transform = `translate(-50%, -50%) rotate(${angleDeg}deg)`;
+
+        // Force reflow
+        void arrow.offsetWidth;
+
+        // Animate
+        arrow.style.transition = 'all 0.5s cubic-bezier(0.25, 1, 0.5, 1)';
+        arrow.style.left = `${endX}px`;
+        arrow.style.top = `${endY}px`;
+
+        setTimeout(() => {
+            arrow.style.opacity = '0';
+            evaluateAnswer(targetElement, selectedAnswer);
+        }, 500);
+    }
+
+    function evaluateAnswer(targetElement, selectedAnswer) {
+        const q = allQuestions[currentQuestionIndex];
+        const isCorrect = selectedAnswer.toLowerCase() === q.ans.toLowerCase();
+
+        if (isCorrect) {
+            playSFX('correct');
+            targetElement.classList.add('pop');
+            score += 10;
+            updateScore();
+            showFeedback(true, q.ans, q.exp);
+        } else {
+            playSFX('wrong');
+            targetElement.classList.add('shake');
+            showFeedback(false, q.ans, q.exp);
+        }
+    }
+
+    function updateScore() {
+        document.getElementById('display-score').textContent = score;
+    }
+
+    function showFeedback(isCorrect, correctAnswer, explanation) {
+        const modal = document.getElementById('feedback-modal');
+        const box = document.getElementById('feedback-box');
+        const icon = document.getElementById('feedback-icon');
+        const title = document.getElementById('feedback-title');
+        const message = document.getElementById('feedback-message');
+
+        modal.classList.remove('hidden');
+        
+        setTimeout(() => {
+            box.classList.remove('scale-90');
+            box.classList.add('scale-100');
+        }, 10);
+
+        if (isCorrect) {
+            box.className = 'bg-white p-8 rounded-3xl shadow-2xl border-4 text-center max-w-md transform scale-100 transition-transform duration-300 border-green-400';
+            icon.textContent = '🌟';
+            title.textContent = 'TAMA!';
+            title.className = 'text-4xl font-bold mb-2 text-green-500';
+            message.innerHTML = `<span class="block mb-2 font-bold text-gray-800">Magaling!</span>${explanation}`;
+        } else {
+            box.className = 'bg-white p-8 rounded-3xl shadow-2xl border-4 text-center max-w-md transform scale-100 transition-transform duration-300 border-red-400';
+            icon.textContent = '❌';
+            title.textContent = 'MALI!';
+            title.className = 'text-4xl font-bold mb-2 text-red-500';
+            message.innerHTML = `<span class="block mb-2 text-gray-800">Ang tamang sagot ay <b class="text-sky-600">${correctAnswer}</b>.</span>${explanation}`;
+        }
+    }
+
+    function nextQuestion() {
+        const modal = document.getElementById('feedback-modal');
+        const box = document.getElementById('feedback-box');
+        
+        box.classList.remove('scale-100');
+        box.classList.add('scale-90');
+        
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            currentQuestionIndex++;
+            loadQuestion();
+        }, 300);
+    }
+
+    function showCertificate() {
+        document.getElementById('game-screen').classList.add('hidden');
+        const certScreen = document.getElementById('certificate-screen');
+        
+        document.getElementById('cert-name').textContent = playerName;
+        document.getElementById('cert-avatar').textContent = playerAvatar;
+        document.getElementById('cert-score').textContent = score;
+        
+        certScreen.classList.remove('hidden');
+        certScreen.classList.add('flex');
+        playSFX('correct'); // Fanfare
+    }
+
+    // Handle Enter key for identification input
+    document.getElementById('id-input').addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            submitIdentification();
+        }
+    });
+
+</script>
+</body>
+</html>
