@@ -1,0 +1,1 @@
+# Uri-ng-Pangungusap-ayon-sa-Gamit
